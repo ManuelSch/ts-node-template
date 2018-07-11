@@ -1,0 +1,19 @@
+{
+  "name": "momox-amazon-arbitrage",
+  "version": "1.0.0",
+  "description": "",
+  "main": "isbn-generator.js",
+  "scripts": {
+    "tsc-watch": "tsc --watch",
+    "nodemon": "nodemon ./build/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {},
+  "devDependencies": {
+    "@types/node": "^10.5.2",
+    "@types/express": "^4.16.0",
+    "typescript": "^2.9.2"
+  }
+}
