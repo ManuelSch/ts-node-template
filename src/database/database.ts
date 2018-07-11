@@ -31,21 +31,47 @@ export class DatabaseServer {
     }
 
 
-    public getData<T extends iDatabaseData>(path: string, id?: number): Promise<T> {
+    // read from db:
+    public getData<T extends iDatabaseData>(path: string, id?: number|string): Promise<T> {
         return new Promise<T>((resolve, reject) => {
             request.get(DatabaseServer.URL + path + (id ? '/'+ id : ''), (error, response, body) => {
-                error ? reject() : resolve(body);
+                error ? reject() : resolve(JSON.parse(body));
             });
         });
     }
 
-    public setData<T extends iDatabaseData>(path: string, data: T): Promise<T> {
+    // decides on its own whether to create or update a db entry:
+    public overwriteData<T extends iDatabaseData>(path: string, data: T): Promise<T> {
+        if(!data.id) {
+            return Database.createData<T>(path, data);
+        }
+        
+        return new Promise<T>((resolve, reject) => {
+            Database.getData<T>(path, data.id).then(oldData => {
+                if(oldData && oldData.id) {
+                    Database.updateData<iBook>(path, oldData.id, {...<any>oldData, ...<any>data}).then(data => resolve(<T>data));
+                }
+                else {
+                    Database.createData<iBook>(path, data).then(data => resolve(<T>data));
+                }
+            });
+        });
+    }
+
+    public createData<T extends iDatabaseData>(path: string, data: T): Promise<T> {
         return new Promise<T>((resolve, reject) => {
             request.post(DatabaseServer.URL + path, { json: data }, (error, response, body) => {
                 error ? reject() : resolve(body);
             });
         });
+    }
 
+    public updateData<T extends iDatabaseData>(path: string, id: number|string, data: T): Promise<T> {
+        return new Promise<T>((resolve, reject) => {
+            request.put(DatabaseServer.URL + path + '/'+ id, { json: data }, (error, response, body) => {
+                error ? reject() : resolve(body);
+            });
+        });
     }
 
 }

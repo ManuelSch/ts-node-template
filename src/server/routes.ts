@@ -12,12 +12,12 @@ export class Routes {
     }
 
     public getHome(req: Request, res: Response): void {
-        console.log('GET: "/"');
+        console.log('GET: "' + req.path + '"');
         res.send({ home: 'home' });
     }
 
     public getTest(req: Request, res: Response): void {
-        console.log('GET: "/test", params =', req.query);
+        console.log('GET: "' + req.path + '", params =', req.query);
         res.send({ test: 'someData' });
     }
 
