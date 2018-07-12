@@ -21,7 +21,7 @@ onInitialized.then(() => {
         password: 'pw1234'
     };
 
-    database.setData('/users', testUser).then(user => {
+    database.overwriteData('/users', testUser).then(user => {
         console.log('created user =', user);
 
         database.getData<iUser>('/users', user.id).then(user => {

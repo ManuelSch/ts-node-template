@@ -43,16 +43,16 @@ export class DatabaseServer {
     // decides on its own whether to create or update a db entry:
     public overwriteData<T extends iDatabaseData>(path: string, data: T): Promise<T> {
         if(!data.id) {
-            return Database.createData<T>(path, data);
+            return this.createData<T>(path, data);
         }
         
         return new Promise<T>((resolve, reject) => {
-            Database.getData<T>(path, data.id).then(oldData => {
+            this.getData<T>(path, data.id).then(oldData => {
                 if(oldData && oldData.id) {
-                    Database.updateData<iBook>(path, oldData.id, {...<any>oldData, ...<any>data}).then(data => resolve(<T>data));
+                    this.updateData<T>(path, oldData.id, {...<any>oldData, ...<any>data}).then(data => resolve(<T>data));
                 }
                 else {
-                    Database.createData<iBook>(path, data).then(data => resolve(<T>data));
+                    this.createData<T>(path, data).then(data => resolve(<T>data));
                 }
             });
         });
