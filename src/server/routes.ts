@@ -1,10 +1,12 @@
+import * as bodyParser from 'body-parser';
 import {Request, Response} from "express-serve-static-core";
 import {Application} from "express";
-
 
 export class Routes {
 
     constructor(app: Application) {
+
+        app.use(bodyParser.json());
 
         app.get('/', this.getHome);
         app.get('/test', this.getTest);
