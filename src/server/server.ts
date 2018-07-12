@@ -1,4 +1,5 @@
 import * as express from "express";
+import * as cors from "cors";
 import {Application} from "express";
 import {CONFIG} from "./config";
 import {Routes} from "./routes";
@@ -8,6 +9,8 @@ export class SimpleServer {
 
     public initialize(): Promise<void> {
         const app: Application = express();
+
+        app.use(cors());
 
         this.setupRoutes(app);
 
