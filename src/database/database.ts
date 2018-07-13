@@ -1,77 +1,75 @@
-import * as JsonServer from 'json-server';
-import * as request from 'request';
-import {Application} from "express";
 import {DB_CONFIG} from "./config";
-import {iDatabaseData} from "./models";
+import {Collection, Db, MongoClient, MongoError} from "mongodb";
 
 
-export class DatabaseServer {
+class DatabaseServer {
 
-    public static readonly URL: string = 'http://' + DB_CONFIG.HOST + ':' + DB_CONFIG.PORT + DB_CONFIG.API_PATH;
+    private static readonly URL: string = 'mongodb://' + DB_CONFIG.HOST + ':' + DB_CONFIG.PORT + '/' + DB_CONFIG.DATABASE_NAME;
 
-    public initialize(): Promise<any> {
-        const dbApp: Application = JsonServer.create();
+    public collection: Collection = null;
 
-        return this.launchServer(dbApp);
+    constructor(private collectionName: string) {}
+
+    public initialize(): Promise<Collection> {
+        return this.connectToServer()
+            .then(client => {
+                return this.connectToDatabase(client, DB_CONFIG.DATABASE_NAME);
+            })
+            .then(db => {
+                return this.createCollection(db, this.collectionName);
+            })
+            .then(collection => {
+                console.log('DB:: initialize complete. Yeah!!');
+                return collection
+            })
     }
 
+    private connectToServer(): Promise<MongoClient> {
+        console.log('DB:: Connecting to mongoDB server...');
 
-    private launchServer(dbApp: Application): Promise<void> {
-        console.log('DB:: starting up database server...');
-
-        dbApp.use(JsonServer.defaults());
-        dbApp.use(DB_CONFIG.API_PATH, JsonServer.router(DB_CONFIG.FILE_PATH));
-
-        return new Promise<void>(resolve => {
-            dbApp.listen(DB_CONFIG.PORT, () => {
-                console.log('DB:: listening at ' + DatabaseServer.URL);
-                resolve();
-            });
-        })
-    }
-
-
-    // read from db:
-    public getData<T extends iDatabaseData>(path: string, id?: number|string): Promise<T> {
-        return new Promise<T>((resolve, reject) => {
-            request.get(DatabaseServer.URL + path + (id ? '/'+ id : ''), (error, response, body) => {
-                error ? reject() : resolve(JSON.parse(body));
-            });
-        });
-    }
-
-    // decides on its own whether to create or update a db entry:
-    public overwriteData<T extends iDatabaseData>(path: string, data: T): Promise<T> {
-        if(!data.id) {
-            return this.createData<T>(path, data);
-        }
-        
-        return new Promise<T>((resolve, reject) => {
-            this.getData<T>(path, data.id).then(oldData => {
-                if(oldData && oldData.id) {
-                    this.updateData<T>(path, oldData.id, {...<any>oldData, ...<any>data}).then(data => resolve(<T>data));
+        return new Promise<MongoClient>(resolve => {
+            MongoClient.connect(DatabaseServer.URL, (err: MongoError, db: MongoClient) => {
+                if(err) {
+                    throw err;
                 }
-                else {
-                    this.createData<T>(path, data).then(data => resolve(<T>data));
+                console.log("DB: database connection successful");
+                resolve(db);
+            });
+        });
+    }
+
+    private connectToDatabase(client: MongoClient, dbPath: string): Db {
+        console.log('DB:: Connecting to database "'+dbPath+'"...');
+
+        return client.db(dbPath);
+    }
+
+    private createCollection(db: Db, collectionName: string): Promise<Collection> {
+        console.log('DB:: Creating collection "'+collectionName+'"...');
+
+        return new Promise<Collection>(resolve => {
+            db.createCollection(collectionName, (err, res) => {
+                if(err) {
+                    throw err;
                 }
-            });
+                console.log('DB:: Collection "'+collectionName+'" created');
+                resolve(this.collection = db.collection(collectionName));
+            })
         });
     }
+}
 
-    public createData<T extends iDatabaseData>(path: string, data: T): Promise<T> {
-        return new Promise<T>((resolve, reject) => {
-            request.post(DatabaseServer.URL + path, { json: data }, (error, response, body) => {
-                error ? reject() : resolve(body);
-            });
-        });
+
+
+const _usersDatabase = new DatabaseServer('users');
+
+export abstract class DB {
+
+    public static initialize(): Promise<void> {
+        return _usersDatabase.initialize().then(() => {});
     }
 
-    public updateData<T extends iDatabaseData>(path: string, id: number|string, data: T): Promise<T> {
-        return new Promise<T>((resolve, reject) => {
-            request.put(DatabaseServer.URL + path + '/'+ id, { json: data }, (error, response, body) => {
-                error ? reject() : resolve(body);
-            });
-        });
+    public static get users(): Collection {
+        return _usersDatabase.collection;
     }
-
 }

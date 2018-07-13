@@ -148,3 +148,4 @@ typings/
 *.iml
 .idea
 /build
+/database

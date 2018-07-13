@@ -1,12 +1,8 @@
-interface iDatabaseModel {
-    users: iUser[];              // you have to manually create these properties inside of the main object in db.json
+abstract class DatabaseData {
+    public _id?: number;
 }
 
-export abstract class iDatabaseData {
-    public id?: number;
-}
-
-export class iUser extends iDatabaseData {
+export class User extends DatabaseData {
     constructor(
         public email: string,
         public password: string,
