@@ -37,7 +37,7 @@ export class Routes {
 
         const newUser: User = req.body;
 
-        DB.users.insertOne(newUser, (error: MongoError, result: InsertOneWriteOpResult) => {
+        DB.users.insertOne(newUser, (error: MongoError, result: InsertOneWriteOpResult<any>) => {
             if(error) {
                 res.send({ error: error });
             }
