@@ -1,75 +1,68 @@
-import {DB_CONFIG} from "./config";
-import {Collection, Db, MongoClient, MongoError} from "mongodb";
+import { DB_CONFIG } from './config';
+import { Collection, Db, MongoClient } from 'mongodb';
+import { User } from './models';
 
 
 class DatabaseServer {
 
     private static readonly URL: string = 'mongodb://' + DB_CONFIG.HOST + ':' + DB_CONFIG.PORT + '/' + DB_CONFIG.DATABASE_NAME;
 
-    public collection: Collection = null;
-
-    constructor(private collectionName: string) {}
-
-    public initialize(): Promise<Collection> {
-        return this.connectToServer()
-            .then(client => {
-                return this.connectToDatabase(client, DB_CONFIG.DATABASE_NAME);
-            })
-            .then(db => {
-                return this.createCollection(db, this.collectionName);
-            })
-            .then(collection => {
-                console.log('DB:: initialize complete. Yeah!!');
-                return collection
-            })
+    constructor(private collectionName: string) {
     }
 
-    private connectToServer(): Promise<MongoClient> {
-        console.log('DB:: Connecting to mongoDB server...');
+    public async initialize(): Promise<Collection> {
+        const client = await this.connectToServer();
+        const db = this.connectToDatabase(client, DB_CONFIG.DATABASE_NAME);
+        const collection = await this.createCollection(db, this.collectionName);
 
-        return new Promise<MongoClient>(resolve => {
-            MongoClient.connect(DatabaseServer.URL, (err: MongoError, db: MongoClient) => {
-                if(err) {
-                    throw err;
-                }
-                console.log("DB: database connection successful");
-                resolve(db);
-            });
-        });
+        console.log('DB:: initialize complete. Yeah!!');
+        return collection;
+    }
+
+    private async connectToServer(): Promise<MongoClient> {
+        console.log('DB:: Connecting to mongoDB server...');
+        const client = MongoClient.connect(DatabaseServer.URL);
+
+        console.log('DB: Connecting to mongoDB server successful.');
+        return client;
     }
 
     private connectToDatabase(client: MongoClient, dbPath: string): Db {
-        console.log('DB:: Connecting to database "'+dbPath+'"...');
+        console.log(`DB:: Connecting to database "${dbPath}"...`);
+        const db = client.db(dbPath);
 
-        return client.db(dbPath);
+        console.log(`DB:: Connecting to database "${dbPath}" successful.`);
+        return db;
     }
 
-    private createCollection(db: Db, collectionName: string): Promise<Collection> {
-        console.log('DB:: Creating collection "'+collectionName+'"...');
+    private async createCollection(db: Db, collectionName: string): Promise<Collection> {
+        console.log(`DB:: Creating collection "${collectionName}"...`);
+        const collection = await db.createCollection(collectionName);
 
-        return new Promise<Collection>(resolve => {
-            db.createCollection(collectionName, (err, res) => {
-                if(err) {
-                    throw err;
-                }
-                console.log('DB:: Collection "'+collectionName+'" created');
-                resolve(this.collection = db.collection(collectionName));
-            })
-        });
+        console.log(`DB:: Creating collection "${collectionName}" successful`);
+        return db.collection(collectionName);
     }
 }
 
 
+class DatabaseWrapper {
 
-const _usersDatabase = new DatabaseServer('users');
+    private databases = [
+        'users',
+    ] as const;
 
-export abstract class DB {
+    private collections: Record<string, Collection> = {};
 
-    public static initialize(): Promise<void> {
-        return _usersDatabase.initialize().then(() => {});
+    public get users(): Collection<User> {
+        console.assert(this.collections.users, 'DB:: "users" collection must be initialized first.');
+        return this.collections.users;
     }
 
-    public static get users(): Collection {
-        return _usersDatabase.collection;
+    public async initialize(): Promise<void> {
+        for (const dbName of this.databases) {
+            this.collections[dbName] = await new DatabaseServer(dbName).initialize();
+        }
     }
 }
+
+export const DB = new DatabaseWrapper();

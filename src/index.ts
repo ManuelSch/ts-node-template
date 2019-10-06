@@ -1,10 +1,10 @@
-import {SimpleServer} from "./server/server";
-import {DB} from "./database/database";
+import { SimpleServer } from './server/server';
+import { DB } from './database/database';
 
 (async () => {
     const server = new SimpleServer();
 
-    //await DB.initialize();
+    await DB.initialize();
     await server.initialize();
 
     // ...

@@ -1,6 +1,6 @@
 {
-  "verbose": false,
-  "watch": [
-    "./build/"
-  ]
+    "verbose": false,
+    "watch": [
+        "./build/"
+    ]
 }

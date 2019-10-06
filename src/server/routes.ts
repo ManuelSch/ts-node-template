@@ -1,9 +1,9 @@
 import * as bodyParser from 'body-parser';
-import {Request, Response} from "express-serve-static-core";
-import {Application} from "express";
-import {DB} from "../database/database";
-import {InsertOneWriteOpResult, MongoError, ObjectID, UpdateWriteOpResult} from "mongodb";
-import {User} from "../database/models";
+import { Request, Response } from 'express-serve-static-core';
+import { Application } from 'express';
+import { DB } from '../database/database';
+import { FilterQuery, ObjectID, UpdateQuery, } from 'mongodb';
+import { User } from '../database/models';
 
 export class Routes {
 
@@ -17,59 +17,55 @@ export class Routes {
 
     }
 
-    public getUser(req: Request, res: Response): void {
-        console.log(req.method + ': "' + req.path + '" with params =', req.query);
+    public async getUser(req: Request, res: Response) {
+        console.log(`${req.method}: "${req.path}" with params =`, req.query);
 
-        const query = new ObjectID(req.query['_id']);
+        try {
+            const query = new ObjectID(req.query['_id']);
 
-        DB.users.findOne(query, (error: MongoError, result: User) => {
-            if(error) {
-                res.send({ error: error });
+            const foundUser = await DB.users.findOne<User>(query);
+
+            if(foundUser) {
+                res.send(foundUser);
             }
             else {
-                res.send(result);
+                res.status(404).send({ success: false, msg: 'User not found' });
             }
-        });
-    }
-
-    public createUser(req: Request, res: Response): void {
-        console.log(req.method + ': "' + req.path + '"');
-
-        const newUser: User = req.body;
-
-        DB.users.insertOne(newUser, (error: MongoError, result: InsertOneWriteOpResult<any>) => {
-            if(error) {
-                res.send({ error: error });
-            }
-            else {
-                res.send({ ...newUser, _id: result.insertedId });
-            }
-        });
-    }
-
-    public updateUser(req: Request, res: Response): void {
-        console.log(req.method + ': "' + req.path + '"');
-
-        const query = { _id: new ObjectID(req.body['_id']) };
-
-        const update = {
-            $set: {}
-        };
-        for(let key in req.body) {
-            if (key === '_id')
-                continue;
-
-            update.$set[key] = req.body[key]+'';
         }
+        catch(e) {
+            res.status(404).send({ success: false, msg: 'Wrong ID format' })
+        }
+    }
 
-        DB.users.updateOne(query, update, (error: MongoError, result: UpdateWriteOpResult) => {
-            if(error) {
-                res.send({ error: error});
-            }
-            else {
-                res.send({ success: true });
-            }
-        });
+    public async createUser(req: Request, res: Response) {
+        console.log(`${req.method}: "${req.path}"`);
+
+        const { _id, ...newUser } = User.fromRequestBody(req.body);
+
+        const result = await DB.users.insertOne(newUser);
+        res.send(result.ops[0]);
+    }
+
+    public async updateUser(req: Request, res: Response) {
+        console.log(`${req.method}: "${req.path}"`);
+
+        const { _id, ...updatedUserData } = User.fromRequestBodyPartial(req.body);
+
+        const update: UpdateQuery<User> = {
+            $set: updatedUserData,
+        };
+
+        const query: FilterQuery<User> = {
+            _id,
+        };
+
+        try {
+            await DB.users.updateOne(query, update);
+            res.send({ success: true });
+        }
+        catch (e) {
+            res.status(404).send({ success: false, msg: 'User could not be updated' })
+        }
     }
 
 }

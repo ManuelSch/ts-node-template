@@ -1,8 +1,8 @@
-import * as express from "express";
-import * as cors from "cors";
-import {Application} from "express";
-import {CONFIG} from "./config";
-import {Routes} from "./routes";
+import * as express from 'express';
+import { Application } from 'express';
+import * as cors from 'cors';
+import { CONFIG } from './config';
+import { Routes } from './routes';
 
 
 export class SimpleServer {
