@@ -1,8 +1,10 @@
 class DatabaseConfig {
 
-    readonly HOST: string = 'localhost';
-    readonly DATABASE_NAME: string = 'test-db';
-    readonly PORT: string = '27018';
+    readonly USER = 'postgres';
+    readonly PASSWORD = 'password';
+    readonly HOST = 'localhost';
+    readonly PORT = 5432;
+    readonly DB_NAME = 'test';
 
 }
 

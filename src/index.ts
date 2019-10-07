@@ -7,5 +7,6 @@ import { DB } from './database/database';
     await DB.initialize();
     await server.initialize();
 
+
     // ...
 })();
