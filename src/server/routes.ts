@@ -39,7 +39,7 @@ export class Routes {
             const { email, password } = req.body;
 
             if(!email || !password) {
-                res.status(404).end();
+                res.sendStatus(404);
                 return;
             }
 
@@ -52,7 +52,7 @@ export class Routes {
             res.send(createdUser.rows[0]);
         }
         catch (e) {
-            res.status(404).end();
+            res.status(404).send(e);
         }
     }
 
@@ -66,20 +66,17 @@ export class Routes {
                     'id', u.id,
                     'email', u.email,
                     'password', u.password,
-                    'created', u.created
+                    'created', to_char(u.created, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
                 )
                 FROM users u
                 WHERE u.id = $1
             `, [ id ]);
 
         if (foundUser.rows.length > 0) {
-            res.send(foundUser.rows.map(json_build_object).map(row => ({
-                ...row,
-                created: fromUTC(row.created),
-            }))[0]);
+            res.send(foundUser.rows.map(json_build_object)[0]);
         }
         else {
-            res.status(404).end();
+            res.sendStatus(404);
         }
     }
 
@@ -91,15 +88,12 @@ export class Routes {
                     'id', u.id,
                     'email', u.email,
                     'password', u.password,
-                    'created', u.created
+                    'created', to_char(u.created, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
                 )
                 FROM users u
             `);
 
-        res.send(foundUsers.rows.map(json_build_object).map(row => ({
-            ...row,
-            created: fromUTC(row.created),
-        })));
+        res.send(foundUsers.rows.map(json_build_object));
     }
 
     async createComment(req: Request, res: Response) {
@@ -109,7 +103,7 @@ export class Routes {
             const { content, user_id } = req.body;
 
             if(!content || !user_id) {
-                res.status(404).end();
+                res.sendStatus(404);
                 return;
             }
 
@@ -139,7 +133,7 @@ export class Routes {
             }))[0]);
         }
         catch (e) {
-            res.status(404).end();
+            res.status(404).send(e);
         }
     }
 
@@ -152,12 +146,12 @@ export class Routes {
                 SELECT json_build_object(
                     'id', c.id,
                     'content', c.content,
-                    'created', c.created,
+                    'created', to_char(c.created, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
                     'user', json_build_object(
                         'id', u.id,
                         'email', u.email,
                         'password', u.password,
-                        'created', u.created
+                        'created', to_char(u.created, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
                     )
                 )
                 FROM comments c
@@ -166,17 +160,10 @@ export class Routes {
             `, [ id ]);
 
         if (foundComment.rows.length > 0) {
-            res.send(foundComment.rows.map(json_build_object).map(row => ({
-                ...row,
-                created: fromUTC(row.created),
-                user: {
-                    ...row.user,
-                    created: fromUTC(row.user.created),
-                }
-            }))[0]);
+            res.send(foundComment.rows.map(json_build_object)[0]);
         }
         else {
-            res.status(404).end();
+            res.sendStatus(404);
         }
     }
 
@@ -187,26 +174,19 @@ export class Routes {
                 SELECT json_build_object(
                     'id', c.id,
                     'content', c.content,
-                    'created', c.created,
+                    'created', to_char(c.created, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'),
                     'user', json_build_object(
                         'id', u.id,
                         'email', u.email,
                         'password', u.password,
-                        'created', u.created
+                        'created', to_char(u.created, 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
                     )
                 )
                 FROM comments c
                 INNER JOIN users u on c.user_id = u.id
             `);
 
-        res.send(foundComment.rows.map(json_build_object).map(row => ({
-            ...row,
-            created: fromUTC(row.created),
-            user: {
-                ...row.user,
-                created: fromUTC(row.user.created),
-            }
-        })));
+        res.send(foundComment.rows.map(json_build_object));
     }
 
 
