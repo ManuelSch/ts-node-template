@@ -1,6 +1,7 @@
+/*
 import { Column, DataType, Model, Table } from 'sequelize-typescript';
 
-export interface User {
+export interface iUser {
     id: number;
     email: string;
     password: string;
@@ -9,7 +10,7 @@ export interface User {
 @Table({
     modelName: 'users',
 })
-export class UserModel extends Model<UserModel> implements User {
+export class User extends Model<User> implements iUser {
 
     @Column({
         primaryKey: true,
@@ -59,3 +60,4 @@ export class UserModel extends Model<UserModel> implements User {
         return result;
     }
 }
+*/

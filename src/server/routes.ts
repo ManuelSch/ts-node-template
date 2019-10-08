@@ -1,8 +1,18 @@
 import * as bodyParser from 'body-parser';
 import { Request, Response } from 'express-serve-static-core';
 import { Application } from 'express';
-import { UserModel } from '../database/models/user.model';
-import { UpdateOptions } from 'sequelize';
+import { DB } from '../database/database';
+const Big = require('big.js');
+
+const fromUTC = date => {
+    const _date = new Date(date);
+    _date.setHours(_date.getHours() + 2);
+    return _date;
+};
+
+// https://stackoverflow.com/a/13227451/6805758
+const json_build_object = row => row.json_build_object;
+
 
 export class Routes {
 
@@ -10,61 +20,203 @@ export class Routes {
 
         app.use(bodyParser.json());
 
-        app.get('/user', this.getUser);
         app.post('/user', this.createUser);
-        app.put('/user', this.updateUser);
+        app.get('/user/:id', this.getUser);
+        app.get('/user', this.getAllUsers);
+
+        app.post('/comment', this.createComment);
+        app.get('/comment/:id', this.getComment);
+        app.get('/comment', this.getAllComments);
+
+        app.get('/ping', this.ping);
 
     }
 
-    public async getUser(req: Request, res: Response) {
-        console.log(`${req.method}: "${req.path}" with params =`, req.query);
+    async createUser(req: Request, res: Response) {
+        console.log(`${req.method}: "${req.path}" with body =`, req.body);
 
-        const { id } = UserModel.fromRequestBodyPartial(req.query);
+        try {
+            const { email, password } = req.body;
 
-        const foundUser = await UserModel.findByPk(id);
+            if(!email || !password) {
+                res.status(404).end();
+                return;
+            }
 
-        if (foundUser) {
-            res.send(foundUser);
+            const createdUser = await DB.client.query(`
+                INSERT INTO users(email, password, created)
+                VALUES($1, $2, now() at time zone 'utc')
+                RETURNING id, email, password, timezone('UTC'::text, created) as created
+            `, [ email, password ]);
+
+            res.send(createdUser.rows[0]);
+        }
+        catch (e) {
+            res.status(404).end();
+        }
+    }
+
+    async getUser(req: Request, res: Response) {
+        console.log(`${req.method}: "${req.path}" with params =`, req.params);
+
+        const { id } = req.params;
+
+        const foundUser = await DB.client.query(`
+                SELECT json_build_object(
+                    'id', u.id,
+                    'email', u.email,
+                    'password', u.password,
+                    'created', u.created
+                )
+                FROM users u
+                WHERE u.id = $1
+            `, [ id ]);
+
+        if (foundUser.rows.length > 0) {
+            res.send(foundUser.rows.map(json_build_object).map(row => ({
+                ...row,
+                created: fromUTC(row.created),
+            }))[0]);
         }
         else {
-            res.status(404).send({ success: false, msg: 'UserModel not found' });
+            res.status(404).end();
         }
     }
 
-    public async createUser(req: Request, res: Response) {
+    async getAllUsers(req: Request, res: Response) {
         console.log(`${req.method}: "${req.path}"`);
 
+        const foundUsers = await DB.client.query(`
+                SELECT json_build_object(
+                    'id', u.id,
+                    'email', u.email,
+                    'password', u.password,
+                    'created', u.created
+                )
+                FROM users u
+            `);
+
+        res.send(foundUsers.rows.map(json_build_object).map(row => ({
+            ...row,
+            created: fromUTC(row.created),
+        })));
+    }
+
+    async createComment(req: Request, res: Response) {
+        console.log(`${req.method}: "${req.path}" with body =`, req.body);
+
         try {
-            const { id, ...userData } = UserModel.fromRequestBody(req.body);
+            const { content, user_id } = req.body;
 
-            const newUser = new UserModel(userData);
-            const createdUser = await newUser.save();
+            if(!content || !user_id) {
+                res.status(404).end();
+                return;
+            }
 
-            res.send(createdUser);
+            const foundUser = await DB.client.query(`
+                SELECT json_build_object(
+                    'id', u.id,
+                    'email', u.email,
+                    'password', u.password,
+                    'created', u.created
+                )
+                FROM users u
+                WHERE u.id = $1
+            `, [ user_id ]);
+
+            const createdComment = await DB.client.query(`
+                INSERT INTO comments(content, user_id, created)
+                VALUES($1, $2, now() at time zone 'utc')
+                RETURNING id, content, timezone('UTC'::text, created) as created
+            `, [ content, user_id ]);
+
+            res.send(createdComment.rows.map(row => ({
+                ...row,
+                user: foundUser.rows.map(json_build_object).map(row => ({
+                    ...row,
+                    created: fromUTC(row.created),
+                }))[0]
+            }))[0]);
         }
         catch (e) {
-            res.status(404).send({ success: false, msg: 'User could not be created' });
+            res.status(404).end();
         }
     }
 
-    public async updateUser(req: Request, res: Response) {
+    async getComment(req: Request, res: Response) {
+        console.log(`${req.method}: "${req.path}" with params =`, req.params);
+
+        const { id } = req.params;
+
+        const foundComment = await DB.client.query(`
+                SELECT json_build_object(
+                    'id', c.id,
+                    'content', c.content,
+                    'created', c.created,
+                    'user', json_build_object(
+                        'id', u.id,
+                        'email', u.email,
+                        'password', u.password,
+                        'created', u.created
+                    )
+                )
+                FROM comments c
+                INNER JOIN users u on c.user_id = u.id
+                WHERE c.id = $1
+            `, [ id ]);
+
+        if (foundComment.rows.length > 0) {
+            res.send(foundComment.rows.map(json_build_object).map(row => ({
+                ...row,
+                created: fromUTC(row.created),
+                user: {
+                    ...row.user,
+                    created: fromUTC(row.user.created),
+                }
+            }))[0]);
+        }
+        else {
+            res.status(404).end();
+        }
+    }
+
+    async getAllComments(req: Request, res: Response) {
         console.log(`${req.method}: "${req.path}"`);
 
-        try {
-            const { id, ...updatedUserData } = UserModel.fromRequestBodyPartial(req.body);
+        const foundComment = await DB.client.query(`
+                SELECT json_build_object(
+                    'id', c.id,
+                    'content', c.content,
+                    'created', c.created,
+                    'user', json_build_object(
+                        'id', u.id,
+                        'email', u.email,
+                        'password', u.password,
+                        'created', u.created
+                    )
+                )
+                FROM comments c
+                INNER JOIN users u on c.user_id = u.id
+            `);
 
-            const query: UpdateOptions = {
-                where: {
-                    id,
-                },
-            };
-
-            await UserModel.update(updatedUserData, query);
-            res.send({ success: true });
-        }
-        catch (e) {
-            res.status(404).send({ success: false, msg: 'UserModel could not be updated' });
-        }
+        res.send(foundComment.rows.map(json_build_object).map(row => ({
+            ...row,
+            created: fromUTC(row.created),
+            user: {
+                ...row.user,
+                created: fromUTC(row.user.created),
+            }
+        })));
     }
 
+
+    async ping(req: Request, res: Response) {
+        console.log(`${req.method}: "${req.path}"`);
+
+        let result = new Big(0);
+        result = result.plus(new Big(0.00002).times(13));
+        result = result.plus(new Big(1.4).times(1000000000000000000000000000000000000000000000000000000000000000));
+
+        res.set('Content-Type', 'text/plain').send(result.toFixed());
+    }
 }

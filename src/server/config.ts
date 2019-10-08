@@ -1,7 +1,7 @@
 class Config {
 
-    readonly HOST: string = 'localhost';
-    readonly PORT: string = '8082';
+    readonly HOST: string = '0.0.0.0';
+    readonly PORT: string = '8080';
 
 }
 
